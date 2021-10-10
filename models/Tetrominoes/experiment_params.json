@@ -1,0 +1,45 @@
+{
+  "dataset": {
+    "dataset_name": "Tetrominoes",
+    "shuffle_train": true,
+    "shuffle_eval": false
+  },
+  "model": {
+    "model_name": "PCDNet",
+    "PrototypeMatcher": {
+      "num_protos": 19,
+      "num_objects": 3,
+      "max_objects": 3,
+      "proto_init": "constant",
+      "proto_size": 25,
+      "background_size": 35,
+      "template_reg": 0,
+      "proto_randomness": true,
+      "randomness_prob": 0.2,
+      "randomness_iters": 800,
+      "background": false,
+      "init_background": false,
+      "use_empty": true
+      }
+    },
+  "loss": {
+    "loss_recons": "mse",
+    "lambda_recons": 1,
+    "template_reg": false,
+    "lambda_reg": 0,
+    "lambda_l1": 0
+  },
+  "training": {
+    "num_epochs": 100,
+    "save_frequency": 3,
+    "log_frequency": 100,
+    "batch_size": 64,
+    "lr": 0.003,
+    "lr_factor": 0.1,
+    "momentum": 0,
+    "nesterov": false,
+    "patience": 5,
+    "optimizer": "adam",
+    "scheduler": "step"
+  }
+}

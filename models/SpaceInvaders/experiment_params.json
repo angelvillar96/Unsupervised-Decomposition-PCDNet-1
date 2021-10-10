@@ -1,0 +1,45 @@
+{
+  "dataset": {
+    "dataset_name": "AtariSpace",
+    "shuffle_train": true,
+    "shuffle_eval": false
+  },
+  "model": {
+    "model_name": "PCDNet",
+    "PrototypeMatcher": {
+      "num_protos": 20,
+      "num_objects": 50,
+      "max_objects": 8,
+      "proto_init": "constant",
+      "proto_size": [20, 20],
+      "background_size": [185,160],
+      "template_reg": 0,
+      "proto_randomness": false,
+      "randomness_prob": 0.2,
+      "randomness_iters": 800,
+      "background": true,
+      "init_background": true,
+      "use_empty": false
+    }
+  },
+  "loss": {
+    "loss_recons": "mse",
+    "lambda_recons": 1,
+    "template_reg": false,
+    "lambda_reg": 0,
+    "lambda_l1": 0
+  },
+  "training": {
+    "num_epochs": 100,
+    "save_frequency": 1,
+    "log_frequency": 200,
+    "batch_size": 3,
+    "lr": 0.001,
+    "lr_factor": 0.1,
+    "momentum": 0,
+    "nesterov": false,
+    "patience": 5,
+    "optimizer": "adam",
+    "scheduler": "step"
+  }
+}

@@ -1,0 +1,29 @@
+Params: 28130
+DecompModel(
+  (prototypes): Prototypes(n_protos=19, mode=constant)
+  (background): Background(size=((25, 25)), learned=False)
+  (softclamp): SoftClamp()
+  (pc_cell): PCCell2(
+    (topK): TopK()
+    (argMax): Argmax()
+  )
+  (color_transformer): ColorTransformer(
+    (color_regressor): Sequential(
+      (0): Conv2d(3, 12, kernel_size=(3, 3), stride=(1, 1))
+      (1): BatchNorm2d(12, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU()
+      (3): Conv2d(12, 12, kernel_size=(3, 3), stride=(1, 1))
+      (4): BatchNorm2d(12, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (5): ReLU()
+      (6): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (7): Conv2d(12, 12, kernel_size=(3, 3), stride=(1, 1))
+      (8): BatchNorm2d(12, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (9): ReLU()
+      (10): Conv2d(12, 12, kernel_size=(3, 3), stride=(1, 1))
+      (11): ReLU()
+      (12): AdaptiveAvgPool2d(output_size=(1, 1))
+      (13): Flatten(start_dim=1, end_dim=-1)
+      (14): Linear(in_features=12, out_features=3, bias=True)
+    )
+  )
+)

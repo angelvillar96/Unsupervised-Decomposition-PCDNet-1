@@ -1,0 +1,10 @@
+Params: 45600
+DecompModel(
+  (prototypes): Prototypes(n_protos=20, mode=constant)
+  (background): Background(size=([20, 20]), learned=True)
+  (softclamp): SoftClamp()
+  (pc_cell): PCCell2(
+    (topK): TopK()
+    (argMax): Argmax()
+  )
+)

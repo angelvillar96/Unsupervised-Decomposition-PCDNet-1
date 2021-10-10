@@ -1,0 +1,14 @@
+{
+  "best_mse": {
+    "result": 1.0012750283582137,
+    "model": "tetrominoes_model.pth"
+  },
+  "best_ari": {
+    "result": 0.9972022704573698,
+    "model": "tetrominoes_model.pth"
+  },
+  "best_ari_bkg": {
+    "result": 0.9949264361471926,
+    "model": "tetrominoes_model.pth"
+  }
+}
