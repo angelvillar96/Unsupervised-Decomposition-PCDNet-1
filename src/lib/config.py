@@ -35,6 +35,17 @@ def load_exp_config_file(exp_path):
     return exp_params
 
 
+def save_exp_config_file(exp_path, exp_params):
+    """
+    Saving a JSON file with exp configs in the experiment path
+    """
+    exp_config = os.path.join(exp_path, "experiment_params.json")
+    with open(exp_config, "w") as file:
+        json.dump(exp_params, file)
+
+    return
+
+
 def update_config(exp_params):
     """
     Updating an experiments parameters file with new-configurations from CONFIG.

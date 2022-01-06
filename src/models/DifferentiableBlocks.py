@@ -7,22 +7,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Function
 
-__all__ = ["TopK", "Argmax"]
-
-
-class DifferentiableArgmax(Function):
-    """
-    Differentiable ArgMax function
-    We copy the gradients during the backward pass
-    """
-    @staticmethod
-    def forward(ctx, i, dim=-1):
-        idx = torch.argmax(i, dim=dim)
-        vals = torch.max(i, dim=dim)
-        return idx, vals
-    @staticmethod
-    def backward(ctx, grad_output):
-        return grad_output.clone()
+__all__ = ["TopK"]
 
 
 class DifferentiableTopK(Function):
@@ -32,34 +17,62 @@ class DifferentiableTopK(Function):
     """
     @staticmethod
     def forward(ctx, i, k):
-        vals, top_ids = torch.topk(i, k=k)
-        return top_ids, vals
+        """ Selecting top-K values and saving indices for backward pass """
+        top_vals, top_ids = torch.topk(i, k=k)
+        ctx.save_for_backward(i, top_ids)
+        top_ids = top_ids.float()
+        return top_ids.clone(), top_vals.clone()
+
     @staticmethod
-    def backward(ctx, grad_output):
-        return grad_output.clone()
-
-
-class Argmax(nn.Module):
-    """ Argmax that allows for backpropagations """
-    def __init__(self, dim):
-        super().__init__()
-        self.dim = dim
-
-    def forward(self, i):
-        idx, vals = DifferentiableArgmax.apply(i, self.dim)
-        return idx, vals
+    def backward(ctx, grad_output, other):
+        """ Passing gradients back only on the TopK selected positions """
+        i, top_ids = ctx.saved_tensors
+        grads = torch.zeros(*i.shape).to(grad_output.device)
+        for b, grad in enumerate(grad_output):
+            cur_ids = top_ids[b]
+            grads[b, cur_ids] = grad_output[b]
+        return grads.clone(), None
 
 
 class TopK(nn.Module):
-    """ Top-K that allows to copy gradients """
-    def __init__(self, k):
+    """
+    Wrapper for the Top-K peak-picking functionality.
+
+    Args:
+    -----
+    k: integer
+        Number of peaks to take in each feature map
+    diff: bool
+        if True, gradients are copied to allow for backpropagation. Similar to Max-Pool
+    """
+
+    def __init__(self, k, diff=False):
+        """ Module initializer """
         super().__init__()
-        self.k= k
+        self.k = k
+        self.diff = diff
+        return
 
     def forward(self, i):
-        top_ids, vals = DifferentiableTopK.apply(i, self.k)
-        return top_ids, vals
+        """
+        Peak picking
 
+        Args:
+        -----
+        i: torch Tensor
+            Tensor to find the maximum (correlation) peaks. Shape is (B, D)
+
+        Returns:
+        --------
+        top_ids, top_vals: torh Tensor
+            location and magnutes of the selected peaks. Shapes are (B, k) for both
+        """
+        if self.diff:
+            top_ids, top_vals = DifferentiableTopK.apply(i, self.k)
+        else:
+            top_vals, top_ids = torch.topk(i, k=self.k)
+        top_ids = top_ids.float()
+        return top_ids, top_vals
 
 
 #

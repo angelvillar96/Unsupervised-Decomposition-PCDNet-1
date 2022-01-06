@@ -9,6 +9,7 @@ from datetime import datetime
 
 LOGGER = None
 
+
 def log_function(func):
     """
     Decorator for logging a method in case of raising an exception
@@ -36,7 +37,7 @@ def for_all_methods(decorator):
     Decorator that applies a decorator to all methods inside a class
     """
     def decorate(cls):
-        for attr in cls.__dict__: # there's propably a better way to do this
+        for attr in cls.__dict__:  # there's propably a better way to do this
             if callable(getattr(cls, attr)):
                 setattr(cls, attr, decorator(getattr(cls, attr)))
         return cls
@@ -53,10 +54,12 @@ def print_(message, message_type="info"):
         LOGGER.log_info(message, message_type)
     return
 
+
 def log_info(message, message_type="info"):
     if(LOGGER is not None):
         LOGGER.log_info(message, message_type)
     return
+
 
 class Logger():
     """
@@ -74,21 +77,17 @@ class Logger():
         """
         Initializer of the logger object
         """
-
         logs_path = os.path.join(exp_path, file_name)
         self.logs_path = logs_path
 
         global LOGGER
         LOGGER = self
-
         return
-
 
     def log_info(self, message, message_type="info", **kwargs):
         """
         Logging a message into the file
         """
-
         if(message_type not in ["new_exp", "info", "warning", "error", "params"]):
             message_type = "info"
         cur_time = self._get_datetime()
@@ -99,7 +98,6 @@ class Logger():
 
         if(message_type == "error"):
             exit()
-
         return
 
     def log_params(self, params):
@@ -110,11 +108,9 @@ class Logger():
         params: dictionary
             dictionary containing parameters and values
         """
-
         for param, value in params.items():
             message = f"    {param}:{value}"
             self.log_info(message, message_type="params")
-
         return
 
     def _format_message(self, message, cur_time, message_type="info"):
@@ -126,7 +122,6 @@ class Logger():
             pre_string = "\n\n\n"
         form_message = f"{pre_string}{cur_time}    {message_type.upper()}: {message}\n"
         return form_message
-
 
     def _get_datetime(self):
         """

@@ -3,7 +3,7 @@ Methods for loading specific datasets, fitting data loaders and other
 """
 
 from torch.utils.data import DataLoader
-from data import Tetrominoes, SpriteDataset, CarsDataset, AttariDataset
+from data import Tetrominoes, CarsDataset, AttariDataset
 from CONFIG import CONFIG
 
 
@@ -52,8 +52,8 @@ def load_data(exp_params, split="train", transform=None):
             dataset_class="vmds"
         )
     elif(dataset_name == "Cars" or dataset_name == "CarsTop"):
-        dataset = CarsDataset(split=split, video="top", rgb=True)
-        # dataset = CarsDataset(split=split, video="top", rgb=False)
+        # dataset = CarsDataset(split=split, video="top", rgb=True)
+        dataset = CarsDataset(split=split, video="top", rgb=False)
     elif(dataset_name == "CarsSide"):
         dataset = CarsDataset(split=split, video="side", rgb=True)
     elif(dataset_name == "AtariSpace"):

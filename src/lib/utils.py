@@ -3,6 +3,7 @@ Utils methods for bunch of purposes
 """
 
 import os
+import pickle
 import json
 import random
 import datetime
@@ -12,6 +13,20 @@ from matplotlib import pyplot as plt
 
 from lib.logger import log_function
 from CONFIG import CONFIG
+
+
+def load_pickle_file(path):
+    """ Loading pickle file """
+    with open(path, "rb") as a_file:
+        data = pickle.load(a_file)
+    return data
+
+
+def save_pickle_file(path, data):
+    """ Saving pickle file """
+    with open(path, "wb") as file:
+        pickle.dump(data, file)
+    return
 
 
 def set_random_seed(random_seed=None):
@@ -69,7 +84,7 @@ def log_architecture(model, exp_path, fname="model_architecture.txt"):
         num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         f.write(f"Params: {num_params}")
         f.write("\n")
-        f.write( str(model) )
+        f.write(str(model))
 
     return
 
@@ -80,3 +95,17 @@ def rgb2gray(img):
     img = 0.2989 * r + 0.5870 * g + 0.1140 * b
     # img = 0.33*r + 0.33*g + 0.33 * b
     return img
+
+
+def press_yes_to_continue(message, key="y"):
+    """ Asking the user for input to continut """
+    if isinstance(message, (list, tuple)):
+        for m in message:
+            print(m)
+    else:
+        print(message)
+    val = input(f"Press '{key}' to continue...")
+    if(val != key):
+        print("Exiting...")
+        exit()
+    return

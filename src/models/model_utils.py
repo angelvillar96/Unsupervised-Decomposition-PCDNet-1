@@ -63,7 +63,6 @@ def get_norm_layer(norm="batch"):
         norm_layer = nn.Identity
     return norm_layer
 
-
 def create_gaussian_weights(img_size, n_channels, std):
     """
     Creating Gaussina kernel with given std
@@ -73,6 +72,7 @@ def create_gaussian_weights(img_size, n_channels, std):
     g2d = np.outer(g1d_h, g1d_w)
     gauss = torch.from_numpy(g2d).unsqueeze(0).expand(n_channels, -1, -1).float()
     return gauss
+
 
 class SoftClamp(nn.Module):
     """

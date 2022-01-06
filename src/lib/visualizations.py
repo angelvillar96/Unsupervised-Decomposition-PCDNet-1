@@ -53,32 +53,14 @@ def update(frame, color="green", pad=2, title="", ax=None, verbose=False, idx=0)
     ax.set_title(title)
     return ax
 
-def add_border(x, color, pad=1):
-    """
-    Adding green/red border to gif-frames
 
-    Args:
-    -----
-    x: numpy array
-        image to add the border to
-    color: string
-        'red' or 'green'. Color of the border
-    pad: integer
-        number of pixels to pad each side
-    """
-    w = x.shape[1]
-    nc = x.shape[-1]
-    px = np.zeros((w+2*pad, w+2*pad, 3))
-    if color == 'red':
-        px[:,:,0] = 0.7
-    elif color == 'green':
-        px[:,:,1] = 0.7
-    if nc == 1:
-        for c in range(3):
-            px[pad:w+pad, pad:w+pad, c] = x
-    else:
-        px[pad:w+pad, pad:w+pad, :] = x
-    return px
+def save_img(img, savepath=None, n_channels=3):
+    """ Saving single image """
+    fig, ax = plt.subplots()
+    img = img.permute(1, 2, 0) if(n_channels == 3) else img[0]
+    ax.imshow(img.cpu().detach())
+    if savepath is not None:
+        plt.savefig(savepath)
 
 
 def visualize_sequence(sequence, savepath=None, add_title=True, add_axis=False, n_cols=10,

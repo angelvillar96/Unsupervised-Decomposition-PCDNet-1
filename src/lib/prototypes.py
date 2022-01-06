@@ -9,11 +9,13 @@ import torch.nn as nn
 
 import lib.metrics as metrics
 
-PROTO_VALUES = ["blobs", "zeros", "zeros_", "shapes", "noise", "constant", "constant_"]
+PROTO_VALUES = ["blobs", "zeros", "zeros_", "shapes", "noise", "constant", "constant_", "squares"]
+
 
 def get_proto_values():
     """ """
     return PROTO_VALUES
+
 
 def init_prototypes(mode="noise", num_protos=2, requires_grad=True, proto_size=64, channels=1, **kwargs):
     """
@@ -40,7 +42,7 @@ def init_prototypes(mode="noise", num_protos=2, requires_grad=True, proto_size=6
     C = 1
 
     if(isinstance(proto_size,int)):
-        proto_size = (proto_size,proto_size)
+        proto_size = (proto_size, proto_size)
 
     if(mode == "blobs"):
         assert proto_size == 64
@@ -50,35 +52,40 @@ def init_prototypes(mode="noise", num_protos=2, requires_grad=True, proto_size=6
         yy, xx = (yy - 20) / 20, (xx - 20) / 20
         blob = (xx.pow(2) + yy.pow(2)).pow(1/sigma)
         blob = 1 - blob/blob.max()
-        protos = torch.zeros(N,1,proto_size[0],proto_size[1])
-        protos[:,:,12:-12,12:-12] = blob
+        protos = torch.zeros(N, 1, proto_size[0], proto_size[1])
+        protos[:, :, 12:-12, 12:-12] = blob
     elif(mode == "centers"):
         raise NotImplementedError()
     elif(mode == "zeros"):
-        protos = torch.zeros(N,1,proto_size[0],proto_size[1])
+        protos = torch.zeros(N, 1, proto_size[0], proto_size[1])
         center0, center1 = proto_size[0] // 2, proto_size[1]//2
-        protos[:,:,center0-1:center0+1, center1-1:center1+1] = 1
+        protos[:, :, center0-1:center0+1, center1-1:center1+1] = 1
     elif(mode == "zeros_"):
-        protos = torch.zeros(N,1,proto_size[0],proto_size[1])
+        protos = torch.zeros(N, 1, proto_size[0], proto_size[1])
         center0, center1 = proto_size[0] // 2, proto_size[1]//2
     elif(mode == "constant"):
-        protos = torch.ones(N,1,proto_size[0],proto_size[1]) * 0.2
+        protos = torch.ones(N, 1, proto_size[0], proto_size[1]) * 0.2
         center0, center1 = proto_size[0] // 2, proto_size[1]//2
-        protos[:,:,center0:center0+1, center1:center1+1] = 1
+        protos[:, :, center0:center0+1, center1:center1+1] = 1
     elif(mode == "constant_"):
         protos = torch.ones(N,1,proto_size[0],proto_size[1]) * 0.2
+    elif(mode == "squares"):
+        y1, x1 = int(proto_size[0] / 5), int(proto_size[1] / 5)
+        y2, x2 = int(proto_size[0] * 4 / 5), int(proto_size[1] * 4 / 5)
+        protos = torch.zeros(N, 1, proto_size[0], proto_size[1])
+        protos[:, :, y1:y2, x1:x2]
     elif(mode == "shapes"):
         assert proto_size == 64
-        aux = np.zeros((64,64))
+        aux = np.zeros((64, 64))
         # ball
         proto_ball = cv2.circle(aux, (32, 32), int(8), 1, -1)
         proto_ball = torch.Tensor(proto_ball)
         # rect
-        proto_rect = cv2.rectangle(aux, (24,24), (40,40), 1, -1)
+        proto_rect = cv2.rectangle(aux, (24, 24), (40, 40), 1, -1)
         proto_rect = torch.Tensor(proto_rect)
         # triangle
-        aux = np.zeros((64,64))
-        coords = np.array([[32,24], [24,40], [40,40]])
+        aux = np.zeros((64, 64))
+        coords = np.array([[32, 24], [24, 40], [40, 40]])
         coords = coords.reshape((-1, 1, 2))
         proto_tri = cv2.fillPoly(aux, [coords], 255, 1)
         proto_tri = torch.Tensor(proto_tri)
@@ -86,7 +93,7 @@ def init_prototypes(mode="noise", num_protos=2, requires_grad=True, proto_size=6
         if(N < 3):
             protos = protos[:N]
         elif(N > 3):
-            extra_balls = proto_ball.repeat(N-3,1,1)
+            extra_balls = proto_ball.repeat(N-3, 1, 1)
             protos = torch.cat([protos, extra_balls], dim=0)
         protos = protos.unsqueeze(1)
 

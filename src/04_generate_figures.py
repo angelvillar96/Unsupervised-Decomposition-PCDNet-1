@@ -24,7 +24,7 @@ COLORS = ["bisque", "aqua",  "red", "darkorange", "goldenrod", "forestgreen",
           "slategray", "yellow", "peachpuff", "red", "maroon", "silver",
           "aquamarine", "pink", "brown", "gold"]
 THR = {
-    "Tetrominoes": 0.8,
+    "Tetrominoes": 0.5,
     "Cars": 0.4,
     "AtariSpace": 0.4
 }
@@ -139,9 +139,8 @@ class FigGenerator:
         ############################
         # segmentation masks
         ############################
-        # bin_mask = self.model.process_masks(self.model.final_masks, thr=THR[self.dataset_name])
-        bin_mask = objects
-        bin_mask[bin_mask > 0.1] = 1
+        thr = 0.5
+        bin_mask = self.model.process_masks(self.model.final_masks, thr=thr)
 
         fig, ax = plt.subplots(n_rows, n_cols)
         fig.set_size_inches(n_cols*SIZE, n_rows*SIZE)

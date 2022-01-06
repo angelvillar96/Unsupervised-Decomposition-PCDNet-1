@@ -73,10 +73,10 @@ def binarize_masks(masks, thr=0.1):
         masks = masks.unsqueeze(0)
 
     if(len(masks.shape) == 4 and masks.shape[-3]==3):
-        r, g, b = masks[:,0,:,:], masks[:,1,:,:], masks[:,2,:,:]
+        r, g, b = masks[:, 0, :, :], masks[:, 1, :, :], masks[:, 2, :, :]
         gray_mask = 0.5 * r + 0.5 * g + 0.5 * b
     elif(len(masks.shape) == 5 and masks.shape[-3]==3):
-        r, g, b = masks[:,:,0,:,:], masks[:,:,1,:,:], masks[:,:,2,:,:]
+        r, g, b = masks[:, :, 0, :, :], masks[:, :, 1, :, :], masks[:, :, 2, :, :]
         gray_mask = 0.5 * r + 0.5 * g + 0.5 * b
     else:
         gray_mask = masks
@@ -107,12 +107,12 @@ def fix_borders(mask):
 
     # filling gaps in a row-wise manner
     for i in range(1, N_COLS-1):
-        mask[...,i] += torch.max(mask[...,:i], dim=-1)[0] * torch.max(mask[...,i+1:], dim=-1)[0]
+        mask[..., i] += torch.max(mask[..., :i], dim=-1)[0] * torch.max(mask[..., i+1:], dim=-1)[0]
         mask[..., i] = mask[..., i].clamp(0, 1)
 
     # filling gaps in a column-wise manner
     for i in range(1, N_ROWS-1):
-        mask[...,i,:] += torch.max(mask[...,:i,:], dim=-2)[0] * torch.max(mask[...,i+1:,:], dim=-2)[0]
+        mask[..., i, :] += torch.max(mask[..., :i, :], dim=-2)[0] * torch.max(mask[..., i+1:, :], dim=-2)[0]
         mask[..., i, :] = mask[..., i, :].clamp(0, 1)
 
     return mask
@@ -218,13 +218,13 @@ def compute_mot_metrics(acc, summary):
     summary['mostly_detected'] = detect_ratios[detect_ratios >= 0.8].count() / n_objs * 100
 
     n = summary['num_objects'][0]
-    summary['num_matches']  = (summary['num_matches'][0] / n * 100)
+    summary['num_matches'] = (summary['num_matches'][0] / n * 100)
     summary['num_false_positives'] = (summary['num_false_positives'][0] / n * 100)
     summary['num_switches'] = (summary['num_switches'][0] / n * 100)
-    summary['num_misses']  = (summary['num_misses'][0] / n * 100)
+    summary['num_misses'] = (summary['num_misses'][0] / n * 100)
 
-    summary['mota']  = (summary['mota'][0] * 100)
-    summary['motp']  = ((1. - summary['motp'][0]) * 100)
+    summary['mota'] = (summary['mota'][0] * 100)
+    summary['motp'] = ((1. - summary['motp'][0]) * 100)
 
     return summary
 

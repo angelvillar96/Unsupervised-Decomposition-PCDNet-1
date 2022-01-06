@@ -10,7 +10,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from lib.logger import print_
-from lib.metrics import fill_mask, fix_borders
 import lib.prototypes as protolib
 import models.transformers as transformers
 from models import PCCell, SoftClamp
@@ -58,6 +57,7 @@ class DecompModel(nn.Module):
         self.proto_size = proto_size
         self.background_size = background_size
         self.use_bkg = background
+        self.mask_randomness = kwargs.get("mask_randomness", True)
         self.randomness = randomness
         self.randomness_prob = kwargs.get("randomness_prob", 0.2)
         self.random_iters = kwargs.get("randomness_iters", -1)
@@ -76,6 +76,10 @@ class DecompModel(nn.Module):
         self.masks = nn.Parameter(
                 torch.ones(num_protos, 1, *proto_size) * 0.5
             ).requires_grad_()
+        # self.masks = protolib.init_background(
+        #         mode="squares", num_protos=num_protos, requires_grad=True,
+        #         proto_size=proto_size, channels=1
+        #     )
 
         # custom modules and neural networks
         self.softclamp = SoftClamp(alpha=0.01)
@@ -250,11 +254,47 @@ class DecompModel(nn.Module):
             3. Applying texture with color transformer
             4. Reconstructing image by using the greedy algorithm
         """
-
         B, C, H, W = x.shape
         L = self.max_objects
         P = self.num_protos
+        protos, masks = self.setup_protos_masks(batch_size=B)
 
+        # padding prototypes to match the correct size
+        protos = self.pad_prototypes(img=x, protos=protos)
+        masks = self.pad_prototypes(img=x, protos=masks)
+
+        # estimating the candidate templates and shifting masks with the PC-Cell
+        peaks = self.pc_cell(x, protos)
+        templates = self.pc_cell.translate_masks_protos(protos, peaks)
+        masks = self.pc_cell.translate_masks_protos(masks, peaks)
+        masks = masks.view(B, L * P, 1, H, W)
+        templates = templates.view(B, L * P, 1, H, W)
+        self.first_temps = templates.clone()
+
+        # applying color transformer to candidate templates
+        if(self.color_transformer):
+            templates = self.color_transformer(img=x, templates=templates, masks=masks)
+        self.templates = templates
+        self.temp_masks = masks
+
+        # greedy selection
+        objects, masks, object_ids = self._greedy_selection(x=x, templates=templates, masks=masks)
+        self.final_masks = masks
+        self.objects = objects
+
+        # reconstructing by sum/overlap of the selected objects/masks
+        reconstruction = self.compose_templates(
+                objects=objects.clone(),
+                masks=masks.clone(),
+                background=self.background,
+                sum_composition=False
+            )
+
+        return reconstruction, (objects, object_ids, protos)
+
+    def setup_protos_masks(self, batch_size):
+        """ Preprocessing object protos and masks before each forward pass """
+        # using protos & masks during training, binarizing masks and masking protos during eval
         if self.training:
             protos, masks = self.prototypes.clone(), self.masks.clone()
         else:
@@ -269,47 +309,15 @@ class DecompModel(nn.Module):
                 noise = torch.zeros(*protos[i].shape, device=protos[i].device)
             protos[i] = protos[i] + noise
 
-        # adding some noise to masks
-        if self.training:
+        # adding some noise to masks, and clamping values
+        # if self.training:
+        if self.training and self.mask_randomness:
             noise = (torch.rand(*masks.shape, device=masks.device) - 0.5)
             masks = masks + noise
-
-        # soft clamp to range [0,1]
         masks = self.softclamp(masks)
         protos = self.softclamp(protos)
 
-        # padding prototypes to match the correct size
-        protos = self.pad_prototypes(img=x, protos=protos)
-        masks = self.pad_prototypes(img=x, protos=masks)
-
-        # estimating the candidate templates and shifting masks with the PC-Cell
-        templates, peaks = self.pc_cell(x, protos)
-        masks = self.pc_cell.translate_masks(masks)
-        masks = masks.view(B, L * P, 1, H, W)
-        templates = templates.view(B, L * P, 1, H, W)
-
-        # applying color transformer to candidate templates
-        if(self.color_transformer):
-            templates = self.color_transformer(
-                    img=x, templates=templates, masks=masks
-                )
-        self.templates = templates
-
-        # greedy selection
-        objects, masks, object_ids = self._greedy_selection(
-                x=x, templates=templates, masks=masks
-            )
-        self.final_masks = masks
-
-        # reconstructing by sum/overlap of the selected objects/masks
-        reconstruction = self.compose_templates(
-                objects=objects.clone(),
-                masks=masks.clone(),
-                background=self.background,
-                sum_composition=False
-            )
-
-        return reconstruction, (objects, object_ids, protos)
+        return protos, masks
 
     def randomness_shutdown(self, iter_, verbose=True):
         """
@@ -322,16 +330,15 @@ class DecompModel(nn.Module):
 
         return
 
-    def process_masks(self, masks, thr=0.8, fill_thr=0.2):
+    def process_masks(self, masks, thr=0.5, fill_thr=0.2):
         """
         Processing prototype masks in order to fill gaps and fully binarize
         """
         thr_masks = masks.clone()
         # binarizing given threhold
-        thr_masks[thr_masks < thr] = 0
+        # thr = 0.4
+        # thr_masks[thr_masks < thr] = 0
         # thr_masks[thr_masks >= thr] = 1
-        # filling gaps
-        # thr_masks = fix_borders(thr_masks)
         return thr_masks
 
     def __repr__(self):

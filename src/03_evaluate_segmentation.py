@@ -28,7 +28,6 @@ class Evaluator:
         """
         Initializing the evaluator object
         """
-
         utils.set_random_seed()
         self.exp_path = exp_path
         self.exp_params = load_exp_config_file(exp_path)
@@ -45,10 +44,6 @@ class Evaluator:
         """
         Loading dataset and fitting data-loader for iterating in a batch-like fashion
         """
-
-        # loading dataset and data loaders
-        utils.set_random_seed()
-
         self.test_set = data.load_data(exp_params=self.exp_params, split="test")
         return
 
@@ -75,7 +70,6 @@ class Evaluator:
         Predicting decomposed objects for the test set and saving the results
         on a json file for evaluation
         """
-
         mse_list = []
         ari_list = []
         ari_bkg_list = []
@@ -90,12 +84,10 @@ class Evaluator:
             reconstruction, (objects, object_ids, protos) = self.model(imgs)
 
             # computing segmentation masks and filling pixel-holes
-            sel_masks = self.model.temp_masks[0, object_ids[0, :]-1]
-            thr = 0.7
-            processed_masks = sel_masks.clone()
-            processed_masks[processed_masks < thr] = 0
-            processed_masks[processed_masks >= thr] = 1
-            processed_masks = metrics.fill_mask(processed_masks, thr=0.8)
+            thr = 0.5
+            sel_masks = self.model.final_masks[0]
+            processed_masks = self.model.process_masks(sel_masks, thr=thr)
+            # processed_masks = metrics.fill_mask(processed_masks, thr=0.8)
 
             # reconstruction metric
             loss = self.mse(reconstruction, imgs)

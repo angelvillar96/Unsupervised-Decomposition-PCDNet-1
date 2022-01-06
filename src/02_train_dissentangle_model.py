@@ -6,20 +6,16 @@ the scene into
 import os
 from tqdm import tqdm
 import numpy as np
-from matplotlib import pyplot as plt
 import torch
-import torchvision.transforms as transforms
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 from lib.arguments import get_directory_argument
 from lib.config import load_exp_config_file
 from lib.logger import Logger, print_, log_function, for_all_methods, log_info
-from lib.losses import get_loss
+import lib.losses as losslib
 import lib.setup_model as setup_model
 import lib.utils as utils
-from lib.visualizations import visualize_prototypes, visualize_recons
+from lib.visualizations import visualize_prototypes, visualize_recons, save_img
 import data
 
 
@@ -33,8 +29,6 @@ class Trainer:
         """
         Initializing the trainer object
         """
-
-        # utils.set_random_seed()
         self.exp_path = exp_path
         self.exp_params = load_exp_config_file(exp_path)
 
@@ -51,7 +45,8 @@ class Trainer:
                                    f"Dissentangle_{utils.timestamp()}")
         utils.create_directory(tboard_logs)
 
-        self.loss_types = ["total", "reconstruction", "template_regularization", "proto_l1"]
+        self.loss_types = ["total", "reconstruction", "template_regularization", "proto_l1",
+                           "proto_l2", "total_variation"]
         self.training_losses = {}
         self.validation_losses = {}
         self.loss_iters = []
@@ -66,9 +61,6 @@ class Trainer:
         """
         Loading dataset and fitting data-loader for iterating in a batch-like fashion
         """
-
-        # loading dataset and data loaders
-        # utils.set_random_seed()
         batch_size = self.exp_params["training"]["batch_size"]
         shuffle_train = self.exp_params["dataset"]["shuffle_train"]
         shuffle_eval = self.exp_params["dataset"]["shuffle_eval"]
@@ -101,9 +93,10 @@ class Trainer:
         model_params = self.exp_params["model"]["PrototypeMatcher"]
 
         # initializing the background prototype
-        if(model_params["init_background"] == True):
+        if(model_params["init_background"] is True):
             model.init_background(db=self.train_loader.dataset)
-            print(model.background.shape)
+            savepath = os.path.join(self.plots_path, "background_init.png")
+            save_img(img=model.background, savepath=savepath, n_channels=model.background.shape[0])
 
         self.model = model.to(self.device)
         utils.log_architecture(model=model,
@@ -136,10 +129,11 @@ class Trainer:
         lambda_recons = self.exp_params["loss"]["lambda_recons"]
         lambda_reg = self.exp_params["loss"]["lambda_reg"] if "lambda_reg" in self.exp_params["loss"] else 0
         lambda_l1 = self.exp_params["loss"]["lambda_l1"] if "lambda_l1" in self.exp_params["loss"] else 0
-        self.loss_recons = get_loss(loss_type=self.exp_params["loss"]["loss_recons"])
-        self.temp_reg = lambda : self.model.get_template_error() if self.exp_params["loss"]["template_reg"] else 0.
-        self.l1_reg = lambda : self.model.prototypes.abs().sum() / len(self.model.prototypes)
-        self.total_loss = lambda l1, l2, l3: lambda_recons * l1 + lambda_reg * l2 + lambda_l1 * l3
+        lambda_l2 = self.exp_params["loss"]["lambda_l2"] if "lambda_l2" in self.exp_params["loss"] else 0
+        lambda_tv = self.exp_params["loss"]["lambda_tv"] if "lambda_tv" in self.exp_params["loss"] else 0
+        self.loss_recons = losslib.get_loss(loss_type=self.exp_params["loss"]["loss_recons"])
+        self.temp_reg = lambda: self.model.get_template_error() if self.exp_params["loss"]["template_reg"] else 0.
+        self.total_loss = losslib.LossAdding(lambdas=[lambda_recons, lambda_reg, lambda_l1, lambda_l2, lambda_tv])
 
         return
 
@@ -174,7 +168,7 @@ class Trainer:
 
             # saving model checkpoint if reached saving frequency
             if(epoch % save_frequency == 0):
-                print_(f"Saving model checkpoint")
+                print_("Saving model checkpoint")
                 meta = {
                     "train_loss":self.training_losses,
                     "valid_loss":self.validation_losses,
@@ -184,25 +178,25 @@ class Trainer:
                                             scheduler=self.scheduler, epoch=epoch, meta=meta,
                                             exp_path=self.exp_path, savedir="models/PCDNet_models")
 
-        print_(f"Finished training procedure")
-        print_(f"Saving final checkpoint")
+        print_("Finished training procedure")
+        print_("Saving final checkpoint")
         meta = {
             "train_loss": self.training_losses,
             "valid_loss": self.validation_losses,
             "loss_iters": self.loss_iters
         }
-
-        setup_model.save_checkpoint(model=self.model, optimizer=self.optimizer,
-                                    scheduler=self.scheduler, epoch=epoch,
-                                    exp_path=self.exp_path, savedir="models/PCDNet_models",
-                                    meta=meta, finished=True)
+        setup_model.save_checkpoint(
+                model=self.model, optimizer=self.optimizer,
+                scheduler=self.scheduler, epoch=epoch,
+                exp_path=self.exp_path, savedir="models/PCDNet_models",
+                meta=meta, finished=True
+            )
         return
 
     def train_epoch(self, epoch):
         """
         Training epoch loop
         """
-        # utils.set_random_seed()
         epoch_losses = {}
         for type in self.loss_types:
             epoch_losses[type] = []
@@ -220,12 +214,16 @@ class Trainer:
             # computing loss
             loss_recons = self.loss_recons(reconstruction, frames)
             template_reg = self.temp_reg()
-            l1_reg = self.l1_reg()
-            loss = self.total_loss(loss_recons, template_reg, l1_reg)
+            l1_reg = losslib.proto_l1(self.model.prototypes)
+            l2_reg = losslib.proto_l2(self.model.prototypes)
+            tv_reg = losslib.total_variation(self.model.masks)
+            loss = self.total_loss(losses=[loss_recons, template_reg, l1_reg, l2_reg, tv_reg])
             self.loss_iters.append(loss.item())
             epoch_losses["reconstruction"].append(loss_recons.item())
             epoch_losses["template_regularization"].append(template_reg)
             epoch_losses["proto_l1"].append(l1_reg.item())
+            epoch_losses["proto_l2"].append(l2_reg.item())
+            epoch_losses["total_variation"].append(tv_reg.item())
             epoch_losses["total"].append(loss.item())
 
             self.optimizer.zero_grad()
@@ -239,12 +237,18 @@ class Trainer:
                                            epoch_losses[type][-1],
                                            global_step=iter_)
                     log_data = f"""Log data train iteration {iter_}:
-                                   loss={round(np.mean(epoch_losses[type]),5 )};"""
+                                   loss {type}={round(np.mean(epoch_losses[type]),5 )};"""
                     log_info(message=log_data)
 
             # visualizing the learned prototypes and a few reconstructions every epoch / few iterations
             if(i == 0 or iter_ % self.exp_params["training"]["log_frequency"] == 0):
                 try:
+                    # background
+                    if(self.model.use_bkg):
+                        savepath = os.path.join(self.plots_path, f"Background_Epoch_{epoch+1}_iter_{i+1}.png")
+                        background = self.model.background
+                        save_img(img=background, savepath=savepath, n_channels=background.shape[0])
+
                     # prototypes image
                     savepath = os.path.join(self.plots_path, f"Prototypes_Epoch_{epoch+1}_iter_{i+1}.png")
                     fig, ax = visualize_prototypes(protos=self.model.prototypes.clamp(0,1), savepath=savepath)
@@ -309,7 +313,7 @@ class Trainer:
         progress_bar = tqdm(enumerate(self.valid_loader), total=len(self.valid_loader))
 
         for i, (frames) in progress_bar:
-            # not validating for more than 50 batches
+            # not validating for more than 30 batches
             if(i >= 30):
                 break
 
@@ -321,22 +325,17 @@ class Trainer:
             # computing loss
             loss_recons = self.loss_recons(reconstruction, frames)
             template_reg = self.temp_reg()
-            l1_reg = self.l1_reg()
-            loss = self.total_loss(loss_recons, template_reg, l1_reg)
+            l1_reg = losslib.proto_l1(self.model.prototypes)
+            l2_reg = losslib.proto_l2(self.model.prototypes)
+            tv_reg = losslib.total_variation(self.model.masks)
+            loss = self.total_loss(losses=[loss_recons, template_reg, l1_reg, l2_reg, tv_reg])
             self.loss_iters.append(loss.item())
             epoch_losses["reconstruction"].append(loss_recons.item())
             epoch_losses["template_regularization"].append(template_reg)
             epoch_losses["proto_l1"].append(l1_reg.item())
+            epoch_losses["proto_l2"].append(l2_reg.item())
+            epoch_losses["total_variation"].append(tv_reg.item())
             epoch_losses["total"].append(loss.item())
-
-            # # visualizing the learned prototypes and a few reconstructions every epoch
-            # if(i == 0 or i % self.exp_params["training"]["log_frequency"] == 0):
-            #     savepath = os.path.join(self.plots_path, f"Prototypes_Epoch_{epoch+1}_iter_{i+1}.png")
-            #     fig, ax = visualize_prototypes(protos=protos.clamp(0,1), savepath=savepath)
-            #     self.writer.add_figure(tag=f"Prototypes Epoch {epoch+1} iter {i+1}", figure=fig)
-            #     savepath = os.path.join(self.plots_path, f"Recons_Epoch_{epoch+1}_iter_{i+1}.png")
-            #     fig, ax = visualize_recons(recons=reconstruction, frames=frames, savepath=savepath)
-            #     self.writer.add_figure(tag=f"Reconstructions Epoch {epoch+1} Iter {i+1}", figure=fig)
 
             # update progress bar
             progress_bar.set_description(f"Epoch {epoch+1} iter {i}: valid loss {loss.item():.5f}.")

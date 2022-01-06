@@ -22,12 +22,12 @@ def setup_model(model_params, dataset_name=""):
         num_objs = proto_params["num_objects"]
         proto_params["max_objects"] = proto_params.get("max_objects", num_objs)
 
-        use_color = True if dataset_name in ["Tetrominoes", "Cars",
-                                             "CarsTop", "CarsSide"] else False
-        channels = 3 if dataset_name in ["Tetrominoes", "Cars",
-                                         "CarsTop", "CarsSide"] else 1
-        # use_color = True if dataset_name in ["Tetrominoes"] else False
-        # channels = 3 if dataset_name in ["Tetrominoes"] else 1
+        # use_color = True if dataset_name in ["", "Tetrominoes", "Cars",
+        #                                      "CarsTop", "CarsSide"] else False
+        # channels = 3 if dataset_name in ["Tetrominoes", "Cars",
+        #                                  "CarsTop", "CarsSide"] else 1
+        use_color = True if dataset_name in ["", "Tetrominoes"] else False
+        channels = 3 if dataset_name in ["", "Tetrominoes"] else 1
 
         model = models.DecompModel(
                 num_protos=proto_params["num_protos"],
@@ -166,15 +166,17 @@ def setup_optimizer(exp_params, model):
     patience = exp_params["training"]["patience"]
     momentum = exp_params["training"]["momentum"]
     optimizer = exp_params["training"]["optimizer"]
+    # weight_decay = exp_params["training"]["weight_decay"]
+    weight_decay = exp_params["training"].get("weight_decay", 0)
     nesterov = exp_params["training"]["nesterov"]
     scheduler = exp_params["training"]["scheduler"]
 
     # SGD-based optimizer
     if(optimizer == "adam"):
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     else:
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum,
-                                    nesterov=nesterov, weight_decay=0.0005)
+                                    nesterov=nesterov, weight_decay=weight_decay)
 
     # LR-scheduler
     if(scheduler == "plateau"):
