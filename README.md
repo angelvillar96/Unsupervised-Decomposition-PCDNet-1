@@ -144,7 +144,7 @@ Please consider citing our paper if you find our work or our repository helpful.
 @inproceedings{villar2021PCDNet,
   title={Unsupervised Image Decomposition with Phase-Correlation Networks},
   author={Villar-Corrales, A. and Behnke, S.},
-  booktitle={International Joint Conference on Computer Vision, Imaging and Computer Graphics Theory and Applications (VISIGRAPP)},
+  booktitle={17th International Conference on Computer Vision Theory and Applications (VISAPP)},
   year={2022}
 }
 ```
